@@ -5,12 +5,12 @@
 #define BOARD_FIRMWARE_VERSION        "1.0.1"
 #define BOARD_HARDWARE_VERSION        "1.0.0"
 
-#define BOARD_NAME                    "Product Name"        // Name of your product. Should match App Export request info.
-#define BOARD_VENDOR                  "Company Name"        // Name of your company. Should match App Export request info.
+#define BOARD_NAME                    "ESP-WROOM-32"        // Name of your product. Should match App Export request info.
+#define BOARD_VENDOR                  "Mehdi Mazaheri"        // Name of your company. Should match App Export request info.
 #define BOARD_TEMPLATE_ID             "TMPL0000"            // ID of the Tile Template. Can be found in Tile Template Settings
 
-#define PRODUCT_WIFI_SSID             "Our Product"         // Name of the device, to be displayed during configuration. Should match export request info.
-#define BOARD_CONFIG_AP_URL           "our-product.cc"      // Config page will be available in a browser at 'http://our-product.cc/'
+#define PRODUCT_WIFI_SSID             "LeakDetector"         // Name of the device, to be displayed during configuration. Should match export request info.
+#define BOARD_CONFIG_AP_URL           "LeakDetector.cc"      // Config page will be available in a browser at 'http://our-product.cc/'
 
 /*
  * Board configuration (see examples below).
