@@ -9,24 +9,28 @@
 
  *************************************************************/
 
+
 //#define USE_WROVER_BOARD
 #define USE_CUSTOM_BOARD // See "Custom board configuration" in Settings.h
 #define APP_DEBUG        // Comment this out to disable debug prints
 #define BLYNK_PRINT Serial
-#define BUTTON_PIN_BITMASK 0x200000000 // 2^33 in hex GPIO 33
+
+#include "BlynkProvisioning.h"
+#include <MyCommonBlynk.h>
+#include <stdint.h>
+#include <esp_deep_sleep.h>
+#include <driver/rtc_io.h>
 
 //sleep time between each measurement
 #define DEEP_SLEEP_TIME 3600 * 12 * 10e6 //microsec
 #define WATCH_DOG_TIMEOUT 12e6           //microsec
 #define CONFIG_PIN 32                    //pin to go to config mode
+const gpio_num_t wakeup_port=gpio_num_t::GPIO_NUM_33;
 
 #define MSG_LEAK "Leak Detected."
 #define MSG_SLEEP "Slept again."
 
 //https://randomnerdtutorials.com/esp32-external-wake-up-deep-sleep/
-#include "BlynkProvisioning.h"
-#include <MyCommonBlynk.h>
-#include <esp_deep_sleep.h>
 
 /**
  * The purpose of this program is to simply demonstrate the use
@@ -41,7 +45,7 @@ void interruptReboot()
   {
     return;
   }
-  
+
   Serial.println("Watchdog timed out!");
   delay(200);
   esp_deep_sleep_start();
@@ -56,7 +60,13 @@ void setup()
   pinMode(CONFIG_PIN, INPUT_PULLUP);
 
   //ext1 wake up doesn't need prepherials to be on, only RTC
-  esp_sleep_enable_ext1_wakeup(BUTTON_PIN_BITMASK, ESP_EXT1_WAKEUP_ANY_HIGH);
+  //esp_sleep_enable_ext1_wakeup(WAKE_UP_MASK, ESP_EXT1_WAKEUP_ANY_HIGH);
+
+  //gpio_pullup_en(GPIO_NUM_34);
+  rtc_gpio_init(wakeup_port);
+  rtc_gpio_set_direction(wakeup_port,rtc_gpio_mode_t::RTC_GPIO_MODE_INPUT_ONLY);
+  rtc_gpio_pullup_en(wakeup_port);
+  esp_sleep_enable_ext0_wakeup(wakeup_port, 0); //0 low 1 high
 
   //enable watch dog timer, to sleep mcu no matter what
   watchdogTimer = timerBegin(0, 80, true);                  //timer 0 divisor 80
@@ -88,8 +98,7 @@ void loop()
   if (!Blynk.connected())
   {
     return;
-  } 
-  
+  }
 
   esp_sleep_wakeup_cause_t wakeup_reason;
 
@@ -99,8 +108,10 @@ void loop()
   {
   case ESP_SLEEP_WAKEUP_EXT0:
     Serial.println("Wakeup caused by external signal using RTC_IO");
+    wakeup_by_leak = true;
     break;
   case ESP_SLEEP_WAKEUP_EXT1:
+    Serial.println("Wakeup caused by external signal using RTC_CNTL");
     wakeup_by_leak = true;
     break;
   case ESP_SLEEP_WAKEUP_TIMER:
@@ -119,12 +130,12 @@ void loop()
 
   if (wakeup_by_leak)
   {
-     String leak_msg = getDateAndTime() + " " + MSG_SLEEP;
+    String leak_msg = getDateAndTime() + " " + MSG_LEAK;
     for (int i = 0; i < 5; ++i)
     {
       Serial.println(leak_msg);
       Blynk.notify(leak_msg);
-      Blynk.virtualWrite(V1, "\xE2\x8F\xB3", leak_msg); // Send time to Display Widget      
+      Blynk.virtualWrite(V1, "\xE2\x8F\xB3", leak_msg); // Send time to Display Widget
       delay(1000);
     }
   }
