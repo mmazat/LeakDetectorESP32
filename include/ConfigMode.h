@@ -253,9 +253,12 @@ void enterError() {
       return;
     }
   }
+
+  #ifndef DONT_RESTART_AFTER_ERROR
   DEBUG_PRINT("Restarting after error.");
   delay(10);
 
   restartMCU();
+  #endif
 }
 

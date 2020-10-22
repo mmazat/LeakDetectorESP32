@@ -14,6 +14,9 @@
 #define APP_DEBUG        // Comment this out to disable debug prints
 #define BLYNK_PRINT Serial
 
+//must be on top of blynkprovisoning
+#define DONT_RESTART_AFTER_ERROR
+
 #include "BlynkProvisioning.h"
 #include <MyCommonBlynk.h>
 #include <stdint.h>
@@ -30,7 +33,7 @@
 const gpio_num_t wakeup_port = gpio_num_t::GPIO_NUM_33;
 
 #define MSG_LEAK "Leak Detected."
-#define MSG_SLEEP "Slept again."
+#define MSG_SLEEP "No Leak, sleeping."
 
 //https://randomnerdtutorials.com/esp32-external-wake-up-deep-sleep/
 
@@ -40,12 +43,13 @@ const gpio_num_t wakeup_port = gpio_num_t::GPIO_NUM_33;
  * Source: Jack Rickard https://www.youtube.com/watch?v=7kLy2iwIvy8
  */
 hw_timer_t *watchdogTimer = NULL;
-void hibernate()
+void gotoSleep()
 {
   esp_wifi_stop();
   esp_deep_sleep_start();
 }
 bool configMode = false;
+bool leak_detected = false;
 void interruptReboot()
 {
   if (configMode)
@@ -53,20 +57,32 @@ void interruptReboot()
     return;
   }
 
-  Serial.println("Watchdog timed out!");
-  delay(200);
- hibernate();
+  if (leak_detected)
+  {
+    ESP.restart();
+  }
+  else
+  {
+    gotoSleep();
+  }
 }
 
+void detectLeak()
+{
+  if (digitalRead(INPUT_PIN) == LOW)
+  {
+    leak_detected = true;
+  }
+}
 
 void setup()
 {
   esp_bluedroid_disable();
   esp_bt_controller_disable();
   Serial.begin(115200);
-  BlynkProvisioning.begin();
 
   pinMode(CONFIG_PIN, INPUT_PULLUP);
+  configMode = digitalRead(CONFIG_PIN) == LOW;
 
   //ext1 wake up doesn't need prepherials to be on, only RTC
   //esp_sleep_enable_ext1_wakeup(WAKE_UP_MASK, ESP_EXT1_WAKEUP_ANY_HIGH);
@@ -77,35 +93,38 @@ void setup()
   //rtc_gpio_pullup_en(wakeup_port);
   esp_sleep_enable_ext0_wakeup(wakeup_port, 1); //0 low 1 high
 
-  //enable watch dog timer, to sleep mcu no matter what
-  watchdogTimer = timerBegin(0, 80, true);                  //timer 0 divisor 80
-  timerAlarmWrite(watchdogTimer, WATCH_DOG_TIMEOUT, false); // set time in uS must be fed within this time or reboot
-  timerAttachInterrupt(watchdogTimer, &interruptReboot, true);
-  timerAlarmEnable(watchdogTimer); // enable interrupt
+  if (!configMode)
+  {
+    //enable watch dog timer, to sleep mcu no matter what
+    watchdogTimer = timerBegin(0, 80, true);                  //timer 0 divisor 80
+    timerAlarmWrite(watchdogTimer, WATCH_DOG_TIMEOUT, false); // set time in uS must be fed within this time or reboot
+    timerAttachInterrupt(watchdogTimer, &interruptReboot, true);
+    timerAlarmEnable(watchdogTimer); // enable interrupt
+  }
 
-  //By default, esp_deep_sleep_start function will power down all RTC power domains which are not needed by the enabled wakeup sources
-  // esp_deep_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
-  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF);
-  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF);
-  esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
-  esp_sleep_pd_config(ESP_PD_DOMAIN_MAX, ESP_PD_OPTION_OFF);  
+   /**
+   * check for a leak once here, just to change behaviour of watch dog to restart 
+   * it means if there is a leak and board can't connect to blynk, restart the board instead of sleep
+   * working great!
+  */
+  detectLeak();
+  
   esp_sleep_enable_timer_wakeup(DEEP_SLEEP_TIME);
+  
   delay(100);
+  BlynkProvisioning.begin();
+  if (configMode)
+  {
+    configMode = true;
+    BlynkState::set(MODE_WAIT_CONFIG); //blynk.run will take it from there
+    Serial.println("Config mode started");
+  }
 }
 
 void loop()
 {
-  if (!configMode)
-  {
-    if (digitalRead(CONFIG_PIN) == LOW)
-    {
-      configMode = true;
-      BlynkState::set(MODE_WAIT_CONFIG); //blynk.run will take it from there
-      Serial.println("Config mode started");
-    }
-  }
-
-  // This handles the network and cloud connection
+  
+    // This handles the network and cloud connection
   BlynkProvisioning.run();
 
   if (!Blynk.connected())
@@ -161,5 +180,5 @@ void loop()
     delay(200); // delay to make sure data is sent
   }
 
-hibernate();
+  gotoSleep();
 }
