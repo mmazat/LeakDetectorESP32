@@ -13,8 +13,6 @@
 #define USE_CUSTOM_BOARD // See "Custom board configuration" in Settings.h
 #define APP_DEBUG        // Comment this out to disable debug prints
 #define BLYNK_PRINT Serial
-#define ARDUINO 104
-#define ESP32
 
 //must be on top of blynkprovisoning
 #define DONT_RESTART_AFTER_ERROR
@@ -30,9 +28,9 @@
 #include <rom/rtc.h>
 
 //sleep time between each measurement
-#define DEEP_SLEEP_TIME 3600 * 12 * 10e6 //microsec
-#define WATCH_DOG_TIMEOUT 12e6           //microsec
-#define CONFIG_PIN 32                    //pin to go to config mode
+#define DEEP_SLEEP_TIME 3600 * 12 * 10e6             //microsec
+#define WATCH_DOG_TIMEOUT 12e6                       //microsec
+#define CONFIG_PIN 32                                //pin to go to config mode
 const gpio_num_t LEAK_PIN = gpio_num_t::GPIO_NUM_33; //35 is not touch
 
 #define MSG_LEAK "Leak Detected."
@@ -51,9 +49,7 @@ void gotoSleep()
   //avoid grue meditation error panic
   //https://esp32.com/viewtopic.php?t=8675
   Serial.flush();
-  Serial.end();
-
-  esp_wifi_stop();
+  Serial.end();  
 
   //setup wakeup port as rtc gpio
   rtc_gpio_init(LEAK_PIN);
@@ -87,9 +83,13 @@ void interruptReboot()
 
 void detectLeak()
 {
-  if (digitalRead(LEAK_PIN) == LOW)
+  for (int i = 0; i < 3; ++i)
   {
-    leak_detected = true;
+    if (digitalRead(LEAK_PIN) == LOW)
+    {
+      leak_detected = true;
+    }
+    delay(100);
   }
 }
 
@@ -161,7 +161,6 @@ void loop()
   }
   else
   {
-
     String sleep_msg = getDateAndTime() + " " + MSG_SLEEP;
     Blynk.virtualWrite(V1, sleep_msg); // Send time to Display Widget
     Serial.println(sleep_msg);
