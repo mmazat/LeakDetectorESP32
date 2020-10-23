@@ -28,8 +28,9 @@
 #include <rom/rtc.h>
 
 //sleep time between each measurement
-#define DEEP_SLEEP_TIME 3600 * 12 * 10e6             //microsec
-#define WATCH_DOG_TIMEOUT 12e6                       //microsec
+#define uS_TO_S_FACTOR 1000000UL //must be UL
+#define DEEP_SLEEP_TIME_SEC 3600UL*12UL               //12 hours   
+#define WATCH_DOG_TIMEOUT 12UL*uS_TO_S_FACTOR     
 #define CONFIG_PIN 32                                //pin to go to config mode
 const gpio_num_t LEAK_PIN = gpio_num_t::GPIO_NUM_33; //35 is not touch
 
@@ -123,7 +124,7 @@ void setup()
   */
   detectLeak();
 
-  esp_sleep_enable_timer_wakeup(DEEP_SLEEP_TIME);
+  esp_sleep_enable_timer_wakeup(DEEP_SLEEP_TIME_SEC*uS_TO_S_FACTOR);
 
   delay(100);
   BlynkProvisioning.begin();
