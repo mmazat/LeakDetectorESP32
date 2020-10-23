@@ -13,6 +13,8 @@
 #define USE_CUSTOM_BOARD // See "Custom board configuration" in Settings.h
 #define APP_DEBUG        // Comment this out to disable debug prints
 #define BLYNK_PRINT Serial
+#define ARDUINO 104
+#define ESP32
 
 //must be on top of blynkprovisoning
 #define DONT_RESTART_AFTER_ERROR
@@ -20,17 +22,18 @@
 #include "BlynkProvisioning.h"
 #include <MyCommonBlynk.h>
 #include <stdint.h>
-#include <esp_deep_sleep.h>
 #include <driver/rtc_io.h>
+#include <esp_deep_sleep.h>
 #include <esp_bt_main.h>
 #include <esp_bt.h>
 #include <esp_wifi.h>
+#include <rom/rtc.h>
 
 //sleep time between each measurement
 #define DEEP_SLEEP_TIME 3600 * 12 * 10e6 //microsec
 #define WATCH_DOG_TIMEOUT 12e6           //microsec
 #define CONFIG_PIN 32                    //pin to go to config mode
-const gpio_num_t wakeup_port = gpio_num_t::GPIO_NUM_33;
+const gpio_num_t LEAK_PIN = gpio_num_t::GPIO_NUM_33; //35 is not touch
 
 #define MSG_LEAK "Leak Detected."
 #define MSG_SLEEP "No Leak, sleeping."
@@ -45,9 +48,22 @@ const gpio_num_t wakeup_port = gpio_num_t::GPIO_NUM_33;
 hw_timer_t *watchdogTimer = NULL;
 void gotoSleep()
 {
+  //avoid grue meditation error panic
+  //https://esp32.com/viewtopic.php?t=8675
+  Serial.flush();
+  Serial.end();
+
   esp_wifi_stop();
+
+  //setup wakeup port as rtc gpio
+  rtc_gpio_init(LEAK_PIN);
+  rtc_gpio_set_direction(LEAK_PIN, rtc_gpio_mode_t::RTC_GPIO_MODE_INPUT_ONLY);
+  rtc_gpio_pullup_en(LEAK_PIN);
+  esp_sleep_enable_ext0_wakeup(LEAK_PIN, 0); //0 low 1 high
+
   esp_deep_sleep_start();
 }
+
 bool configMode = false;
 bool leak_detected = false;
 void interruptReboot()
@@ -59,17 +75,19 @@ void interruptReboot()
 
   if (leak_detected)
   {
+    Serial.println("watchdog timedout, restart to try report leak");
     ESP.restart();
   }
   else
   {
+    Serial.println("watchdog timedout, safe to sleep as no leak is detected");
     gotoSleep();
   }
 }
 
 void detectLeak()
 {
-  if (digitalRead(INPUT_PIN) == LOW)
+  if (digitalRead(LEAK_PIN) == LOW)
   {
     leak_detected = true;
   }
@@ -77,21 +95,17 @@ void detectLeak()
 
 void setup()
 {
+  delay(100);
   esp_bluedroid_disable();
   esp_bt_controller_disable();
+  delay(100);
   Serial.begin(115200);
 
   pinMode(CONFIG_PIN, INPUT_PULLUP);
   configMode = digitalRead(CONFIG_PIN) == LOW;
 
-  //ext1 wake up doesn't need prepherials to be on, only RTC
-  //esp_sleep_enable_ext1_wakeup(WAKE_UP_MASK, ESP_EXT1_WAKEUP_ANY_HIGH);
-
-  //gpio_pullup_en(GPIO_NUM_34);
-  rtc_gpio_init(wakeup_port);
-  rtc_gpio_set_direction(wakeup_port, rtc_gpio_mode_t::RTC_GPIO_MODE_INPUT_ONLY);
-  //rtc_gpio_pullup_en(wakeup_port);
-  esp_sleep_enable_ext0_wakeup(wakeup_port, 1); //0 low 1 high
+  rtc_gpio_deinit(LEAK_PIN);
+  pinMode(LEAK_PIN, INPUT_PULLUP);
 
   if (!configMode)
   {
@@ -102,15 +116,15 @@ void setup()
     timerAlarmEnable(watchdogTimer); // enable interrupt
   }
 
-   /**
+  /**
    * check for a leak once here, just to change behaviour of watch dog to restart 
    * it means if there is a leak and board can't connect to blynk, restart the board instead of sleep
    * working great!
   */
   detectLeak();
-  
+
   esp_sleep_enable_timer_wakeup(DEEP_SLEEP_TIME);
-  
+
   delay(100);
   BlynkProvisioning.begin();
   if (configMode)
@@ -123,8 +137,8 @@ void setup()
 
 void loop()
 {
-  
-    // This handles the network and cloud connection
+
+  // This handles the network and cloud connection
   BlynkProvisioning.run();
 
   if (!Blynk.connected())
@@ -132,35 +146,9 @@ void loop()
     return;
   }
 
-  esp_sleep_wakeup_cause_t wakeup_reason;
+  detectLeak();
 
-  wakeup_reason = esp_sleep_get_wakeup_cause();
-  bool wakeup_by_leak = false;
-  switch (wakeup_reason)
-  {
-  case ESP_SLEEP_WAKEUP_EXT0:
-    Serial.println("Wakeup caused by external signal using RTC_IO");
-    wakeup_by_leak = true;
-    break;
-  case ESP_SLEEP_WAKEUP_EXT1:
-    Serial.println("Wakeup caused by external signal using RTC_CNTL");
-    wakeup_by_leak = true;
-    break;
-  case ESP_SLEEP_WAKEUP_TIMER:
-    Serial.println("Wakeup caused by timer");
-    break;
-  case ESP_SLEEP_WAKEUP_TOUCHPAD:
-    Serial.println("Wakeup caused by touchpad");
-    break;
-  case ESP_SLEEP_WAKEUP_ULP:
-    Serial.println("Wakeup caused by ULP program");
-    break;
-  default:
-    Serial.printf("Wakeup was not caused by deep sleep: %d\n", wakeup_reason);
-    break;
-  }
-
-  if (wakeup_by_leak)
+  if (leak_detected)
   {
     String leak_msg = getDateAndTime() + " " + MSG_LEAK;
     for (int i = 0; i < 5; ++i)
