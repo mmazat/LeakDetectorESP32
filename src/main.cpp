@@ -29,7 +29,7 @@
 
 //sleep time between each measurement
 #define uS_TO_S_FACTOR 1000000UL //must be UL
-#define DEEP_SLEEP_TIME_SEC 3600UL*12UL               //12 hours   
+#define DEEP_SLEEP_TIME_SEC 3600UL*2UL               //2 hours   
 #define WATCH_DOG_TIMEOUT 12UL*uS_TO_S_FACTOR     
 #define CONFIG_PIN 32                                //pin to go to config mode
 const gpio_num_t LEAK_PIN = gpio_num_t::GPIO_NUM_33; //35 is not touch
