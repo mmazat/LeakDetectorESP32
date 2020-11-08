@@ -41,6 +41,11 @@
   #define BOARD_LED_PIN_B             4
   #define BOARD_LED_INVERSE           false                 // true if LED is common anode, false if common cathode
   #define BOARD_LED_BRIGHTNESS        64                    // 0..255 brightness control
+#elif defined (USE_ESP32S_BARE)
+// Custom board configuration
+  #define BOARD_BUTTON_PIN            29   //dummy               // Pin where user button is attached
+  #define BOARD_BUTTON_ACTIVE_LOW     true                  // true if button is "active-low"
+  //#define BOARD_LED_PIN               2                    // Set LED pin - if you have a single-color LED attached  
 
 #else
   #error "No board selected"

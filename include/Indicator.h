@@ -129,10 +129,10 @@ protected:
     #endif
   }
 
-#else
-
+#else  
   #warning Invalid LED configuration.
-
+  void initLED(){}
+  void setLED(uint32_t color) {}
 #endif
 
   /*

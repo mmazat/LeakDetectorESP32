@@ -10,7 +10,7 @@
  *************************************************************/
 
 //#define USE_WROVER_BOARD
-#define USE_CUSTOM_BOARD // See "Custom board configuration" in Settings.h
+#define USE_ESP32S_BARE // See "Custom board configuration" in Settings.h
 #define APP_DEBUG        // Comment this out to disable debug prints
 #define BLYNK_PRINT Serial
 
@@ -28,9 +28,9 @@
 #include <rom/rtc.h>
 
 //sleep time between each measurement
-#define uS_TO_S_FACTOR 1000000UL //must be UL
-#define DEEP_SLEEP_TIME_SEC 3600UL*2UL               //2 hours   
-#define WATCH_DOG_TIMEOUT 12UL*uS_TO_S_FACTOR     
+#define uS_TO_S_FACTOR 1000000UL         //must be UL
+#define DEEP_SLEEP_TIME_SEC 3600UL * 2UL //2 hours
+#define WATCH_DOG_TIMEOUT 12UL * uS_TO_S_FACTOR
 #define CONFIG_PIN 32                                //pin to go to config mode
 const gpio_num_t LEAK_PIN = gpio_num_t::GPIO_NUM_33; //35 is not touch
 
@@ -50,7 +50,8 @@ void gotoSleep()
   //avoid grue meditation error panic
   //https://esp32.com/viewtopic.php?t=8675
   Serial.flush();
-  Serial.end();  
+  Serial.end();
+ 
 
   //setup wakeup port as rtc gpio
   rtc_gpio_init(LEAK_PIN);
@@ -94,8 +95,9 @@ void detectLeak()
   }
 }
 
+
 void setup()
-{
+{  
   delay(100);
   esp_bluedroid_disable();
   esp_bt_controller_disable();
@@ -124,7 +126,7 @@ void setup()
   */
   detectLeak();
 
-  esp_sleep_enable_timer_wakeup(DEEP_SLEEP_TIME_SEC*uS_TO_S_FACTOR);
+  esp_sleep_enable_timer_wakeup(DEEP_SLEEP_TIME_SEC * uS_TO_S_FACTOR);
 
   delay(100);
   BlynkProvisioning.begin();
