@@ -11,7 +11,7 @@
 
 //#define USE_WROVER_BOARD
 #define USE_ESP32S_BARE // See "Custom board configuration" in Settings.h
-#define APP_DEBUG        // Comment this out to disable debug prints
+#define APP_DEBUG       // Comment this out to disable debug prints
 #define BLYNK_PRINT Serial
 
 //must be on top of blynkprovisoning
@@ -26,13 +26,15 @@
 #include <esp_bt.h>
 #include <esp_wifi.h>
 #include <rom/rtc.h>
+#include "driver/adc.h"
 
 //sleep time between each measurement
 #define uS_TO_S_FACTOR 1000000UL         //must be UL
 #define DEEP_SLEEP_TIME_SEC 3600UL * 2UL //2 hours
 #define WATCH_DOG_TIMEOUT 12UL * uS_TO_S_FACTOR
 #define CONFIG_PIN 32                                //pin to go to config mode
-const gpio_num_t LEAK_PIN = gpio_num_t::GPIO_NUM_33; //35 is not touch
+const gpio_num_t LEAK_PIN = gpio_num_t::GPIO_NUM_33; //
+#define LEAK_PIN_ID 33
 
 #define MSG_LEAK "Leak Detected."
 #define MSG_SLEEP "No Leak, sleeping."
@@ -51,14 +53,27 @@ void gotoSleep()
   //https://esp32.com/viewtopic.php?t=8675
   Serial.flush();
   Serial.end();
- 
 
   //setup wakeup port as rtc gpio
   rtc_gpio_init(LEAK_PIN);
   rtc_gpio_set_direction(LEAK_PIN, rtc_gpio_mode_t::RTC_GPIO_MODE_INPUT_ONLY);
   rtc_gpio_pullup_en(LEAK_PIN);
   esp_sleep_enable_ext0_wakeup(LEAK_PIN, 0); //0 low 1 high
+  //rtc_gpio_pulldown_en(LEAK_PIN);
+  //esp_sleep_enable_ext0_wakeup(LEAK_PIN, 1); //0 low 1 high
+  
+  uint64_t mask = 0;
+  mask |= 1 << LEAK_PIN_ID;
+  //rtc_gpio_isolate(LEAK_PIN);
+  //esp_deep_sleep_enable_ext1_wakeup(mask,ESP_EXT1_WAKEUP_ANY_HIGH);
 
+
+  esp_deep_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF);
+	esp_deep_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF);
+	//esp_deep_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
+
+  
+  adc_power_off();
   esp_deep_sleep_start();
 }
 
@@ -85,6 +100,7 @@ void interruptReboot()
 
 void detectLeak()
 {
+  Serial.println("Checking for Leak");
   for (int i = 0; i < 3; ++i)
   {
     if (digitalRead(LEAK_PIN) == LOW)
@@ -95,28 +111,38 @@ void detectLeak()
   }
 }
 
-
 void setup()
-{  
+{
   delay(100);
+
+  Serial.begin(115200);
+  Serial.println("Booted");
+
   esp_bluedroid_disable();
   esp_bt_controller_disable();
+
   delay(100);
-  Serial.begin(115200);
+  Serial.println("Disabled unused devices");
 
   pinMode(CONFIG_PIN, INPUT_PULLUP);
   configMode = digitalRead(CONFIG_PIN) == LOW;
+  Serial.println("Checked for config mode");
 
   rtc_gpio_deinit(LEAK_PIN);
   pinMode(LEAK_PIN, INPUT_PULLUP);
 
   if (!configMode)
   {
+    Serial.println("Not in config mode, start watch dog");
     //enable watch dog timer, to sleep mcu no matter what
     watchdogTimer = timerBegin(0, 80, true);                  //timer 0 divisor 80
     timerAlarmWrite(watchdogTimer, WATCH_DOG_TIMEOUT, false); // set time in uS must be fed within this time or reboot
     timerAttachInterrupt(watchdogTimer, &interruptReboot, true);
     timerAlarmEnable(watchdogTimer); // enable interrupt
+  }
+  else
+  {
+    Serial.println("Config mode started");
   }
 
   /**
@@ -128,7 +154,8 @@ void setup()
 
   esp_sleep_enable_timer_wakeup(DEEP_SLEEP_TIME_SEC * uS_TO_S_FACTOR);
 
-  delay(100);
+  delay(300);
+  Serial.println("Starting blink");
   BlynkProvisioning.begin();
   if (configMode)
   {
@@ -136,6 +163,8 @@ void setup()
     BlynkState::set(MODE_WAIT_CONFIG); //blynk.run will take it from there
     Serial.println("Config mode started");
   }
+
+  Serial.println("finish setup");
 }
 
 void loop()
