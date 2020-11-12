@@ -14,7 +14,10 @@
 #define APP_DEBUG       // Comment this out to disable debug prints
 #define BLYNK_PRINT Serial
 
-//must be on top of blynkprovisoning
+/** this flag must be on top of blynkprovisoning
+* if blynk fails to connect, it restarts the board
+* which can be endless and drain the battery
+*/
 #define DONT_RESTART_AFTER_ERROR
 
 #include "BlynkProvisioning.h"
@@ -30,17 +33,15 @@
 
 //sleep time between each measurement
 #define uS_TO_S_FACTOR 1000000UL         //must be UL
-#define DEEP_SLEEP_TIME_SEC 3600UL * 2UL //2 hours
+#define DEEP_SLEEP_TIME_SEC 3600UL * 1UL //1
 #define WATCH_DOG_TIMEOUT 12UL * uS_TO_S_FACTOR
-#define CONFIG_PIN 32                                //pin to go to config mode
-const gpio_num_t LEAK_PIN = gpio_num_t::GPIO_NUM_33; //
-#define LEAK_PIN_ID 33
+#define CONFIG_PIN 32 //pin to go to config mode when is low
+const gpio_num_t LEAK_PIN = gpio_num_t::GPIO_NUM_33;
 
 #define MSG_LEAK "Leak Detected."
 #define MSG_SLEEP "No Leak, sleeping."
 
 //https://randomnerdtutorials.com/esp32-external-wake-up-deep-sleep/
-
 /**
  * The purpose of this program is to simply demonstrate the use
  * of the Watchdog timer on the ESP32
@@ -59,21 +60,23 @@ void gotoSleep()
   rtc_gpio_set_direction(LEAK_PIN, rtc_gpio_mode_t::RTC_GPIO_MODE_INPUT_ONLY);
   rtc_gpio_pullup_en(LEAK_PIN);
   esp_sleep_enable_ext0_wakeup(LEAK_PIN, 0); //0 low 1 high
-  //rtc_gpio_pulldown_en(LEAK_PIN);
-  //esp_sleep_enable_ext0_wakeup(LEAK_PIN, 1); //0 low 1 high
-  
-  uint64_t mask = 0;
-  mask |= 1 << LEAK_PIN_ID;
+
+  //uint64_t mask = 0;
+  //mask |= 1 << LEAK_PIN_ID;
   //rtc_gpio_isolate(LEAK_PIN);
   //esp_deep_sleep_enable_ext1_wakeup(mask,ESP_EXT1_WAKEUP_ANY_HIGH);
 
-
   esp_deep_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF);
-	esp_deep_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF);
-	//esp_deep_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
+  esp_deep_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF);
+  //if peripherial disabled, the pullup resistors won't work
+  //esp_deep_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
 
-  
+  /**significantly reduced the deep sleep power consumption
+ * went from 1mA to 5uA after applying this command
+ */
   adc_power_off();
+
+  //sweet dreams
   esp_deep_sleep_start();
 }
 
