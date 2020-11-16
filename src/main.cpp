@@ -32,8 +32,9 @@
 #include "driver/adc.h"
 
 //sleep time between each measurement
-#define uS_TO_S_FACTOR 1000000UL         //must be UL
-#define DEEP_SLEEP_TIME_SEC 3600UL * 1UL //1
+static constexpr uint64_t uS_TO_S_FACTOR = 1000000UL; //must be UL
+static constexpr uint64_t S_TO_H_FACTOR = 3600UL; //must be UL
+static constexpr uint64_t DEEP_SLEEP_TIME_US =  12UL* S_TO_H_FACTOR *uS_TO_S_FACTOR;
 #define WATCH_DOG_TIMEOUT 12UL * uS_TO_S_FACTOR
 #define CONFIG_PIN 32 //pin to go to config mode when is low
 const gpio_num_t LEAK_PIN = gpio_num_t::GPIO_NUM_33;
@@ -55,6 +56,11 @@ void gotoSleep()
   Serial.flush();
   Serial.end();
 
+  //https://savjee.be/2019/12/esp32-tips-to-increase-battery-life/
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
+  esp_wifi_stop();
+
   //setup wakeup port as rtc gpio
   rtc_gpio_init(LEAK_PIN);
   rtc_gpio_set_direction(LEAK_PIN, rtc_gpio_mode_t::RTC_GPIO_MODE_INPUT_ONLY);
@@ -68,7 +74,7 @@ void gotoSleep()
 
   esp_deep_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF);
   esp_deep_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF);
-  //if peripherial disabled, the pullup resistors won't work
+  //if peripherial disabled, the pullup resistors won't work (rtc_gpio_pullup_en won't work)
   //esp_deep_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
 
   /**significantly reduced the deep sleep power consumption
@@ -116,6 +122,9 @@ void detectLeak()
 
 void setup()
 {
+  //Note: If you’re using the built-in ADC, don’t forget to turn it back on before using it:
+  //adc_power_on();
+
   delay(100);
 
   Serial.begin(115200);
@@ -155,7 +164,7 @@ void setup()
   */
   detectLeak();
 
-  esp_sleep_enable_timer_wakeup(DEEP_SLEEP_TIME_SEC * uS_TO_S_FACTOR);
+  esp_sleep_enable_timer_wakeup(DEEP_SLEEP_TIME_US);
 
   delay(300);
   Serial.println("Starting blink");
