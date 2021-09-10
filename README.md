@@ -22,7 +22,7 @@ Software:
 VSCode + PlatformIO extension can be used to compile and upload this firmware to the board. Blynk App needs to be installed on phone, with Display widgets and RTC widget. Make sure to change the COM port in platform.ini when flashing the board using VSCode
 
 Initialize and run the kit:
-On the phone, install the legacy Blynk App (the new one is not tested yet), add a ESP32 device (and save the auth code), add a display widget on Virtual port V1, with a refresh rate of 2 min. 
+On the phone, install the legacy Blynk App (the new one is not tested yet), add a ESP32 device (and save the auth code), add a display widget on Virtual port V1, with a refresh rate of 8 hours. 
 With the board, power the circuit with 3.3 to 3.8V (won’t work if higher or lower), ground the GPIO32 pin which activates the config mode, on your PC search for LEAKDETECTORxxx wireless access point, and connect to it, In your browser, goto http://192.168.4.1, enter your Blynk auth code and access point credentials, and fill the Blynk info (server blynk-cloud.com, port 80). Unground GPIO32, reset the board and it should connect to your Blynk App on phone.
 
 ![](docs/Blynk.jpg)
