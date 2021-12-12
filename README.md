@@ -23,7 +23,7 @@ VSCode + PlatformIO extension can be used to compile and upload this firmware to
 
 Initialize and run the kit:
 On the phone, install the legacy Blynk App (the new one is not tested yet), add a ESP32 device (and save the auth code), add a display widget on Virtual port V1, with a refresh rate of 8 hours. 
-With the board, power the circuit with 3.3 to 3.8V (won’t work if higher or lower), ground the GPIO32 pin which activates the config mode, on your PC search for LEAKDETECTORxxx wireless access point, and connect to it, In your browser, goto http://192.168.4.1, enter your Blynk auth code and access point credentials, and fill the Blynk info (server blynk-cloud.com, port 80). Unground GPIO32, reset the board and it should connect to your Blynk App on phone.
+With the board, power the circuit with 3.3 to 3.8V (won’t work if higher or lower), ground the GPIO32 pin which activates the config mode, on your PC search for LEAKDETECTORxxx wireless access point, and connect to it, In your browser, goto http://192.168.4.1, enter your Blynk auth code and access point credentials, and fill the Blynk info (server blynk-cloud.com, port 80 or 8080 in case of local blynk server). Unground GPIO32, reset the board and it should connect to your Blynk App on phone.
 
 ![](docs/Blynk.jpg)
 
@@ -33,3 +33,18 @@ Put the exposed pin on a wet surface and it should wake up and send alert to you
 Power supply: use a 18650 battery, but make sure the charge voltage is not higher than 3.9 volts.
 
 ![](docs/device.jpg)
+
+
+Update Dec 2021:
+Blynk legacy cloud platform may shut down in favor of the new blynk iot platform. Hence I setup my own blynk server on a raspberry pi. Authentication of Blynk has been updated recently, so I had to use an older version of blynk local server. On top of that the most recent android blynk app doesn't let you create new user!!!, so I had to install older version from APK file. At the end these are the versions I could match:
+
+Blynk local server:
+https://github.com/blynkkk/blynk-server/releases/tag/v0.41.15
+
+Blynk XAPK android app: v 2.7.31:
+https://m.apkpure.com/blynk-legacy/cc.blynk/variant/2.27.31-XAPK#variants
+
+@note use local server on port 8080 for provisioning.
+
+@note when adding a new ESP32 device, regenerate authentication tokens until one is generated without underscore (_) character, sounds like blynk has problem with it
+
