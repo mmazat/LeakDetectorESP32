@@ -48,3 +48,4 @@ https://m.apkpure.com/blynk-legacy/cc.blynk/variant/2.27.31-XAPK#variants
 
 @note when adding a new ESP32 device, regenerate authentication tokens until one is generated without underscore (_) character, sounds like blynk has problem with it
 
+@note Firebeetle ESP32 board has a 11 ua power consumption in sleep mode, which is great for this project. To use this board enable USE_FIREBEETLE_ESP32 in the main.cpp. Remember for this board port 27 is for config and port 15 is for leak detection.
